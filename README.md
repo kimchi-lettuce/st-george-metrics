@@ -1,11 +1,11 @@
-########################################################################################################
-#### Engineers: Rahardja, Kinzey (KinzeyRahardja1@gmail.com) Chen, Peter (peterstchen118@gmail.com) ####
-#### Project M: He, Jason (wangzhanhe88@gmail.com) #####################################################
-########################################################################################################
+##############################################################################################
+Engineers: Rahardja, Kinzey (KinzeyRahardja1@gmail.com) Chen, Peter (peterstchen118@gmail.com)
+Project M: He, Jason (wangzhanhe88@gmail.com)
+##############################################################################################
 
-##########################
-#### Date: 2024/04/01 ####
-##########################
+#################
+Date: 2024/04/01
+#################
 
 Index
 1 Summary
@@ -21,9 +21,9 @@ Index
 5 Report delivery
   a. Email
 
-##########################
-####### 1. Summary #######
-##########################
+##########
+1. Summary
+##########
 
 The high level purpose of this project is to help relevant stakeholders to monitor church attendance accross the 4pm congregation. 
 This is done so that we minimize the chance that someone would fall through the cracks and wound up uncared for. 
@@ -43,22 +43,22 @@ For everyone who have attended twice in a row
 -those not in a d group once a term sent once a term
 
 
-#####################################
-####### 2. Exporting raw data #######
-#####################################
+#####################
+2. Exporting raw data
+#####################
 
-#############################################
-####### 2a. Ingesting attendance data #######
-#############################################
+#############################
+2a. Ingesting attendance data
+#############################
 
-########################################################
-####### 2b. Ingesting members-to-code dictionary #######
-########################################################
+########################################
+2b. Ingesting members-to-code dictionary
+########################################
 
-##############################################
-####### 2c. Updating Firebase database #######
-##############################################
+##############################
+2c. Updating Firebase database
+##############################
 
-#####################################
-####### 2d. Control - M job #########
-#####################################
+###################
+2d. Control - M job
+###################
