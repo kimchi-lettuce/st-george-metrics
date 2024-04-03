@@ -9,6 +9,8 @@ typings/
 # Node.js dependency directory
 node_modules/
 
-ui-debug.log
+.env
 
+ui-debug.log
 firebase-debug.log
+service-account-key.json

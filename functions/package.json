@@ -5,6 +5,7 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "dev": "npm run build && firebase emulators:start --only functions",
+    "script": "npx tsx ./src/script.ts",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "npm run build && firebase deploy --only functions",
@@ -15,6 +16,7 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "dotenv": "^16.4.5",
     "firebase-admin": "^11.11.1",
     "firebase-functions": "^4.3.1"
   },
