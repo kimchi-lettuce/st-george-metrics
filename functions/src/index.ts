@@ -9,11 +9,17 @@
 
 import { onRequest } from "firebase-functions/v2/https"
 import * as logger from "firebase-functions/logger"
+import * as admin from "firebase-admin"
+
+admin.initializeApp()
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
 
-export const helloWorld = onRequest((request, response) => {
+export const helloWorld = onRequest(async (request, response) => {
   logger.info("Hello logs!", { structuredData: true })
+
+  const ans = await admin.firestore().collection("attendance").get()
+  console.log("🥬", ans.docs)
   response.send("Hello from Firebase!")
 })
