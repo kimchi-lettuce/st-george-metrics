@@ -10,4 +10,22 @@ async function myFirstScript() {
   console.log("❤️", test[0].id, { ...test[0] })
 }
 
-myFirstScript()
+async function testUpdateUsers() {
+  const url =
+    "http://127.0.0.1:8888/stgeorges-attendance-metrics/us-central1/updateUsers" // Replace with your local or deployed function URL
+  const body = [{ hi: "yo" }, { yo: "true" }]
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+    })
+
+    // const data = await response.json()
+    console.log(await response.text())
+  } catch (error) {
+    console.error("Error:", error)
+  }
+}
+
+testUpdateUsers()
