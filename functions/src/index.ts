@@ -10,6 +10,7 @@
 import { onRequest } from "firebase-functions/v2/https"
 import * as logger from "firebase-functions/logger"
 import { db, admin } from "../utils/db"
+import { z } from "zod"
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -22,15 +23,41 @@ export const helloWorld = onRequest(async (request, response) => {
   response.send("Hello from Firebase!")
 })
 
+const UsersFromRequestSchema = z.array(
+  z.object({
+    QR: z.string(),
+    name: z.string(),
+    congregation: z.string(),
+    dgroup: z.string(),
+  })
+)
+
 export const updateUsers = onRequest(async (request, response) => {
-  // Grab all users from the user collection
-  const existingUsers = db.users.getAllDocs()
-  logger.info(existingUsers, { structuredData: true })
+  if (request.method !== "POST") {
+    response.status(405).send("Method Not Allowed")
+    return
+  }
 
-  // Receive the array of users from the google-script.
+  try {
+    // Attempt to parse and validate the request body against the schema
+    const requestBody = UsersFromRequestSchema.parse(request.body)
 
-  // Decide whether we want to update any user info
+    // If successful, requestBody is now typed as UsersFromRequest
+    for (const user of requestBody) {
+      console.log(user)
+      // Your logic here...
+    }
 
-  // Send the output information to a firestore doc to send for the week
-  response.send("testin123")
+    response.send("Processed POST request!!")
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      // Handle validation errors
+      logger.error("Validation of request.body failed", error.errors)
+      response.status(400).send("Invalid request body")
+    } else {
+      // Handle other errors
+      logger.error("An error occurred", error)
+      response.status(500).send("Internal Server Error")
+    }
+  }
 })
