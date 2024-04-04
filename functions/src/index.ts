@@ -23,20 +23,20 @@ export const helloWorld = onRequest(async (request, response) => {
   response.send("Hello from Firebase!")
 })
 
-const UsersFromRequestSchema = z.array(
-  z.object({
-    QR: z.string(),
-    name: z.string(),
-    congregation: z.string(),
-    dgroup: z.string(),
-  })
-)
-
 export const updateUsers = onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send("Method Not Allowed")
     return
   }
+
+  const UsersFromRequestSchema = z.array(
+    z.object({
+      QR: z.string(),
+      name: z.string(),
+      congregation: z.string(),
+      dgroup: z.string(),
+    })
+  )
 
   try {
     // Attempt to parse and validate the request body against the schema
