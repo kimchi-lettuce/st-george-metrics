@@ -39,12 +39,14 @@ export const updateUsers = onRequest(async (request, response) => {
   )
 
   try {
+    // First get all the existing users
+    const existingUsers = await db.users.getAllDocs()
+
     // Attempt to parse and validate the request body against the schema
     const requestBody = UsersFromRequestSchema.parse(request.body)
 
     // If successful, requestBody is now typed as UsersFromRequest
-    for (const user of requestBody) {
-      console.log(user)
+    for (const { QR, congregation, dgroup, name } of requestBody) {
       // Your logic here...
     }
 
