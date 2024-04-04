@@ -16,10 +16,7 @@ import { z } from "zod"
 // https://firebase.google.com/docs/functions/typescript
 
 export const helloWorld = onRequest(async (request, response) => {
-  logger.info("Hello logs!", { structuredData: true })
-
-  const ans = await admin.firestore().collection("attendance").get()
-  logger.info("🥬", ans.docs)
+  logger.info("Hello from Firebase!")
   response.send("Hello from Firebase!")
 })
 
