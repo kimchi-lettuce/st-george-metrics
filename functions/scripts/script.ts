@@ -1,5 +1,5 @@
 import * as dotenv from 'dotenv'
-import { db } from '../utils/db'
+import { db } from '../src/utils/db'
 
 // Needed so that we get the service account from the
 // 'GOOGLE_APPLICATION_CREDENTIALS' stored in the .env file
@@ -27,5 +27,3 @@ async function testUpdateUsers() {
 		console.error('Error:', error)
 	}
 }
-
-testUpdateUsers()
