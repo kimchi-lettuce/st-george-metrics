@@ -22,7 +22,9 @@ export const helloWorld = onRequest(async (request, response) => {
 
 export const updateUsers = onRequest(async (request, response) => {
 	if (request.method !== 'POST') {
-		response.status(405).send('Method Not Allowed')
+		response
+			.status(405)
+			.send('Method Not Allowed. Needs to be a POST request')
 		return
 	}
 
@@ -36,6 +38,8 @@ export const updateUsers = onRequest(async (request, response) => {
 	)
 
 	try {
+		const requestBody = UsersFromRequestSchema.parse(request.body)
+
 		// First get all the existing users
 		const existingUsers = await db.users.getAllDocs()
 
@@ -46,7 +50,6 @@ export const updateUsers = onRequest(async (request, response) => {
 			.get()
 
 		// Attempt to parse and validate the request body against the schema
-		const requestBody = UsersFromRequestSchema.parse(request.body)
 
 		// If successful, requestBody is now typed as UsersFromRequest
 		for (const { QR, congregation, dgroup, name } of requestBody) {
