@@ -9,7 +9,7 @@
 
 import { onRequest } from 'firebase-functions/v2/https'
 import * as logger from 'firebase-functions/logger'
-import { db, admin } from '../utils/db'
+import { db, admin } from './utils/db'
 import { z } from 'zod'
 
 // Start writing functions
