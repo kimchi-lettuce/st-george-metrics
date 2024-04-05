@@ -8,6 +8,14 @@ import * as admin from 'firebase-admin'
 
 admin.initializeApp()
 
+type DocDataWithIdAndRef<T> = T & {
+	/** (non-enumerable) - Id of the firestore document */
+	id: string
+	/** (non-enumerable) - Reference of the firestore document, for easy
+	 * access to perform any firestore actions like `.update()` */
+	ref: admin.firestore.DocumentReference<T>
+}
+
 // Type-safe query builder interface
 interface TypeSafeQueryBuilder<T> {
 	where<K extends keyof T>(
@@ -20,12 +28,7 @@ interface TypeSafeQueryBuilder<T> {
 		directionStr?: OrderByDirection
 	): TypeSafeQueryBuilder<T>
 	limit(limit: number): TypeSafeQueryBuilder<T>
-	get(): Promise<
-		(T & {
-			id: string
-			ref: admin.firestore.DocumentReference<T>
-		})[]
-	>
+	get(): Promise<DocDataWithIdAndRef<T>[]>
 }
 
 async function prettifyQueryData<T = DocumentData>(query: Query<T>) {
@@ -40,7 +43,7 @@ async function prettifyQueryData<T = DocumentData>(query: Query<T>) {
 			enumerable: false
 		})
 		return output
-	}) as (T & { id: string; ref: admin.firestore.DocumentReference<T> })[]
+	}) as DocDataWithIdAndRef<T>[]
 }
 
 // Implementing the type-safe query builder
@@ -78,8 +81,16 @@ const createCollection = <T = DocumentData>(collectionName: string) => {
 	}
 
 	return {
+		/** Gets the firestore collection ref for any custom actions that this
+		 * db helper does not provide for you */
 		collectionRef,
+		/** Returns all prettified document data for this collection */
 		getAllDocs,
+		/** Specify the document id to get a firestore DocumentReference with
+		 * types applied to it. So that your chained actions have typesafety */
+		doc: (id: string) =>
+			collectionRef.doc(id) as admin.firestore.DocumentReference<T>,
+		/** Allows you to create typesafe queries */
 		query: () => createTypeSafeQueryBuilder(collectionRef)
 	}
 }
