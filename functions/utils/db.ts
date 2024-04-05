@@ -5,6 +5,7 @@ import {
 	OrderByDirection
 } from 'firebase-admin/firestore'
 import * as admin from 'firebase-admin'
+import { generateWeekId } from './week'
 
 admin.initializeApp()
 
@@ -105,8 +106,21 @@ type Users = {
 	dGroup?: string
 }
 
+type Output = {
+	/** Record number of function invocations, and we can then attach a watch
+	 * trigger on the `output` collection, such that if the invocations exceeds
+	 * a certain number then we email the developers a warning */
+	[functionName: string]: number
+}
+
+const dbCollections = {
+	users: createCollection<Users>('users'),
+	output: createCollection<Output>('output')
+}
+
 const db = {
-	users: createCollection<Users>('users')
+	...dbCollections,
+	currentWeekOutputDoc: dbCollections.output.doc(generateWeekId())
 }
 
 export { db, admin }
