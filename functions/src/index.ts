@@ -69,3 +69,32 @@ export const updateUsers = onRequest(async (request, response) => {
 		}
 	}
 })
+
+export const updateAttendance = onRequest(async (request, response) => {
+  try {
+    const requestData = request.body as { Timestamp: Date; FirstName: string; LastName: string; QRCode: string };
+    const { Timestamp, FirstName, LastName, QRCode } = requestData;
+
+    // Validate request data
+    if (!Timestamp || !FirstName || !LastName || !QRCode) {
+      response.status(400).json({ error: 'Missing required fields' });
+	  return
+    }
+
+    // Add attendance data to Firestore
+    const attendanceRef = admin.firestore().collection('attendance');
+    await attendanceRef.add({
+      Timestamp,
+      FirstName,
+      LastName,
+      QRCode,
+    });
+
+    response.status(200).json({ message: 'Attendance recorded successfully' });
+	return
+  } catch (error) {
+    console.error('Error taking attendance:', error);
+    response.status(500).json({ error: 'Internal server error' });
+	return
+  }
+});
