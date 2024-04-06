@@ -7,6 +7,7 @@ import {
 import * as admin from 'firebase-admin'
 import { generateWeekId } from './week'
 
+// This should only be called once as it initializes the firebase admin sdk
 admin.initializeApp()
 
 type DocDataWithIdAndRef<T> = T & {
@@ -17,21 +18,9 @@ type DocDataWithIdAndRef<T> = T & {
 	ref: admin.firestore.DocumentReference<T>
 }
 
-// Type-safe query builder interface
-interface TypeSafeQueryBuilder<T> {
-	where<K extends keyof T>(
-		fieldPath: K,
-		opStr: FirebaseFirestore.WhereFilterOp,
-		value: T[K]
-	): TypeSafeQueryBuilder<T>
-	orderBy<K extends keyof T>(
-		fieldPath: K,
-		directionStr?: OrderByDirection
-	): TypeSafeQueryBuilder<T>
-	limit(limit: number): TypeSafeQueryBuilder<T>
-	get(): Promise<DocDataWithIdAndRef<T>[]>
-}
-
+/** Helper function to prettify the query data. It returns the document data as
+ * an array and adds the non-enumerable properties `id` and `ref` to each
+ * document */
 async function prettifyQueryData<T = DocumentData>(query: Query<T>) {
 	return (await query.get()).docs.map(doc => {
 		const output = { ...doc.data() }
@@ -47,7 +36,30 @@ async function prettifyQueryData<T = DocumentData>(query: Query<T>) {
 	}) as DocDataWithIdAndRef<T>[]
 }
 
-// Implementing the type-safe query builder
+type FieldPath<T, Key extends keyof T = keyof T> = Key extends string
+	? T[Key] extends Record<string, any>
+		? `${Key}.${FieldPath<T[Key], keyof T[Key]>}` | `${Key}`
+		: never
+	: never
+
+/** Used by {@link createTypeSafeQueryBuilder} to create a typesafe query
+ * builder. TODO: I want to be able to specify nested fields for `fieldPath` such that
+ * I can get typesafety for "field.subfield" */
+interface TypeSafeQueryBuilder<T> {
+	where<K extends keyof T>(
+		fieldPath: K,
+		opStr: FirebaseFirestore.WhereFilterOp,
+		value: T[K]
+	): TypeSafeQueryBuilder<T>
+	orderBy<K extends keyof T>(
+		fieldPath: K,
+		directionStr?: OrderByDirection
+	): TypeSafeQueryBuilder<T>
+	limit(limit: number): TypeSafeQueryBuilder<T>
+	get(): Promise<DocDataWithIdAndRef<T>[]>
+}
+
+/** Helper function to create a typesafe query builder */
 function createTypeSafeQueryBuilder<T>(
 	query: Query<T>
 ): TypeSafeQueryBuilder<T> {
@@ -65,33 +77,31 @@ function createTypeSafeQueryBuilder<T>(
 		limit(limit) {
 			return createTypeSafeQueryBuilder(query.limit(limit))
 		},
+		/** Promise resolving to the document data for the query */
 		async get() {
 			return prettifyQueryData(query)
 		}
 	}
 }
 
-// This is just a helper to add the type to the db responses
+/** Helper function to create a collection with typesafe actions */
 const createCollection = <T = DocumentData>(collectionName: string) => {
 	const collectionRef = admin
 		.firestore()
 		.collection(collectionName) as CollectionReference<T>
-
-	async function getAllDocs() {
-		return prettifyQueryData(collectionRef)
-	}
 
 	return {
 		/** Gets the firestore collection ref for any custom actions that this
 		 * db helper does not provide for you */
 		collectionRef,
 		/** Returns all prettified document data for this collection */
-		getAllDocs,
+		getAllDocs: () => prettifyQueryData(collectionRef),
 		/** Specify the document id to get a firestore DocumentReference with
 		 * types applied to it. So that your chained actions have typesafety */
 		doc: (id: string) =>
 			collectionRef.doc(id) as admin.firestore.DocumentReference<T>,
-
+		/** Add a new document to the collection. Returns a promise with the
+		 * document id and reference */
 		add: async (data: T) => {
 			const docRef = await collectionRef.add(data)
 			return { id: docRef.id, ref: docRef, ...data }
@@ -118,14 +128,35 @@ type Output = {
 	[functionName: string]: number
 }
 
+type Config = {
+	/** Church staff email recipients of our attendance metrics */
+	emailRecipients: string[]
+	/** Developer email recipients to send the warning email to */
+	emailOfDevelopers: string[]
+	/** TODO: uid of users to not run metrics for */
+	blacklistUsersForMetrics: string[]
+	/** If the number of function calls exceeds this, a warning email is sent to
+	 * the developers */
+	maxWeeklyFunctionCalls: number
+}
+
 const dbCollections = {
 	users: createCollection<Users>('users'),
+	/** Collection for storing the output to send to the email recipients */
 	output: createCollection<Output>('output')
 }
 
 const db = {
 	...dbCollections,
-	currentWeekOutputDoc: dbCollections.output.doc(generateWeekId())
+	/** Helper reference to get the current week's output document */
+	currentWeekOutputDoc: dbCollections.output.doc(generateWeekId()),
+	/** Reference to the `config/all` document in the firestore. It is
+	 * a single document where we store all the configuration settings for the
+	 * app */
+	config: admin
+		.firestore()
+		.collection('config')
+		.doc('all') as admin.firestore.DocumentReference<Config>
 }
 
 export { db, admin }
