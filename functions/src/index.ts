@@ -52,23 +52,29 @@ export const updateUsers = onRequest(
 
 			// Check for conflicting users
 			const uniqueUserNames = new Set()
-			const conflictingUsers: typeof requestBody = []
+			const conflictingUsers = new Set()
 
 			for (const user of requestBody) {
 				const username = user.name.toLocaleLowerCase().trim()
 				if (uniqueUserNames.has(username)) {
-					conflictingUsers.push(user)
+					conflictingUsers.add(username)
 					continue
 				}
 				uniqueUserNames.add(username)
 			}
-			if (conflictingUsers.length) {
-				console.error('Conflicting users found', conflictingUsers)
+			if (conflictingUsers.keys.length > 0) {
+				logger.error(
+					`Conflicting users found: ${JSON.stringify([
+						...conflictingUsers
+					])}`
+				)
 				throw new Error('Conflicting users found')
 			}
 
 			// First get all the existing users
 			const existingUsers = await db.users.getAllDocs()
+
+			// We create the user doc based on their full name in lowercase
 
 			// If successful, requestBody is now typed as UsersFromRequest
 			for (const { QR, congregation, dgroup, name } of requestBody) {
@@ -78,9 +84,12 @@ export const updateUsers = onRequest(
 				if (
 					existingUsers.find(user => user.fullNameLowercase === name)
 				) {
-					console.log('User already found!')
+					// TODO: handle the case to see if the user has changed
+					logger.log('User already found!')
 					continue
 				}
+
+				db.users.query().where('', '==', 'yo').get()
 
 				// Otherwise, we are running an insert
 				await db.users.add({
@@ -88,13 +97,14 @@ export const updateUsers = onRequest(
 					fullNameLowercase: name.toLowerCase().trim()
 				})
 			}
-
 			response.send('Processed POST request!!')
 		} catch (error) {
 			if (error instanceof z.ZodError) {
 				// Handle validation errors
 				logger.error('Validation of request.body failed', error.errors)
-				response.status(400).send('Invalid request body')
+				response
+					.status(400)
+					.send(`Invalid request body ${error.errors}`)
 			} else {
 				// Handle other errors
 				logger.error('An error occurred', error)
@@ -127,48 +137,7 @@ export const generateMetrics = onRequest(
 		)
 
 		try {
-			const requestBody = UsersFromRequestSchema.parse(request.body)
-
-			// Check for conflicting users
-			const uniqueUserNames = new Set()
-			const conflictingUsers: typeof requestBody = []
-
-			for (const user of requestBody) {
-				const username = user.name.toLocaleLowerCase().trim()
-				if (uniqueUserNames.has(username)) {
-					conflictingUsers.push(user)
-					continue
-				}
-				uniqueUserNames.add(username)
-			}
-			if (conflictingUsers.length) {
-				console.error('Conflicting users found', conflictingUsers)
-				throw new Error('Conflicting users found')
-			}
-
-			// First get all the existing users
-			const existingUsers = await db.users.getAllDocs()
-
-			// If successful, requestBody is now typed as UsersFromRequest
-			for (const { QR, congregation, dgroup, name } of requestBody) {
-				// Your logic here...
-
-				// If the user exists, then we are running an update
-				if (
-					existingUsers.find(user => user.fullNameLowercase === name)
-				) {
-					console.log('User already found!')
-					continue
-				}
-
-				// Otherwise, we are running an insert
-				await db.users.add({
-					cardQrCode: QR,
-					fullNameLowercase: name.toLowerCase().trim()
-				})
-			}
-
-			response.send('Processed POST request!!')
+			//
 		} catch (error) {
 			if (error instanceof z.ZodError) {
 				// Handle validation errors
