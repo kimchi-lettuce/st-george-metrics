@@ -36,17 +36,13 @@ async function prettifyQueryData<T = DocumentData>(query: Query<T>) {
 	}) as DocDataWithIdAndRef<T>[]
 }
 
-type FieldPath<T, Key extends keyof T = keyof T> = Key extends string
-	? T[Key] extends Record<string, any>
-		? `${Key}.${FieldPath<T[Key], keyof T[Key]>}` | `${Key}`
-		: never
-	: never
-
 /** Used by {@link createTypeSafeQueryBuilder} to create a typesafe query
- * builder. TODO: I want to be able to specify nested fields for `fieldPath` such that
- * I can get typesafety for "field.subfield" */
+ * builder */
 interface TypeSafeQueryBuilder<T> {
 	where<K extends keyof T>(
+		/** TODO: Only works for top-level fields. Need to add support for
+		 * nested fields chained with a dot. Found it difficult to implement
+		 * with typescript */
 		fieldPath: K,
 		opStr: FirebaseFirestore.WhereFilterOp,
 		value: T[K]
