@@ -91,6 +91,11 @@ const createCollection = <T = DocumentData>(collectionName: string) => {
 		 * types applied to it. So that your chained actions have typesafety */
 		doc: (id: string) =>
 			collectionRef.doc(id) as admin.firestore.DocumentReference<T>,
+
+		add: async (data: T) => {
+			const docRef = await collectionRef.add(data)
+			return { id: docRef.id, ref: docRef, ...data }
+		},
 		/** Allows you to create typesafe queries */
 		query: () => createTypeSafeQueryBuilder(collectionRef)
 	}
@@ -100,8 +105,8 @@ type Users = {
 	/** The user's full name in lowercase. Keeping the case consistent allows us
 	 * to be able to query with an agreed format */
 	fullNameLowercase: string
-	/** Card numbers associated with the user */
-	cardQrCodes: string[]
+	/** Card number associated with the user */
+	cardQrCode: string
 	/** TODO: can potentially add this in the future */
 	dGroup?: string
 }

@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv'
 import { db } from '../src/utils/db'
+import { UpdateUsersRequestBody } from '../src/index'
 
 // Needed so that we get the service account from the
 // 'GOOGLE_APPLICATION_CREDENTIALS' stored in the .env file
@@ -11,9 +12,28 @@ async function myFirstScript() {
 }
 
 async function testUpdateUsers() {
-	const url =
-		'http://127.0.0.1:8888/stgeorges-attendance-metrics/us-central1/updateUsers' // Replace with your local or deployed function URL
-	const body = [{ hi: 'yo' }, { yo: 'true' }]
+	const url = 'https://updateusers-llsapw72ka-ts.a.run.app/' // Replace with your local or deployed function URL
+
+	const body: UpdateUsersRequestBody = [
+		{
+			QR: 'E005',
+			name: 'nancy tung',
+			congregation: 'st georges',
+			dgroup: 'youth'
+		},
+		{
+			QR: 'E006',
+			name: 'carmen nguyen',
+			congregation: 'st georges',
+			dgroup: 'youth'
+		},
+		{
+			QR: 'E007',
+			name: 'erwin candrawigunadi',
+			congregation: 'st georges',
+			dgroup: 'youth'
+		}
+	]
 	try {
 		const response = await fetch(url, {
 			method: 'POST',
@@ -27,3 +47,5 @@ async function testUpdateUsers() {
 		console.error('Error:', error)
 	}
 }
+
+testUpdateUsers()

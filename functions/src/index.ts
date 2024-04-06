@@ -15,57 +15,170 @@ import { z } from 'zod'
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
 
-export const helloWorld = onRequest(async (request, response) => {
-	logger.info('Hello from Firebase!')
-	response.send('Hello from Firebase! 🙂')
-})
-
-export const updateUsers = onRequest(async (request, response) => {
-	if (request.method !== 'POST') {
-		response
-			.status(405)
-			.send('Method Not Allowed. Needs to be a POST request')
-		return
+export const helloWorld = onRequest(
+	{ region: 'australia-southeast1' },
+	async (request, response) => {
+		logger.info('Hello from Firebase!')
+		response.send('Hello from Firebase! 🙂')
 	}
+)
 
-	const UsersFromRequestSchema = z.array(
-		z.object({
-			QR: z.string(),
-			name: z.string(),
-			congregation: z.string(),
-			dgroup: z.string()
-		})
-	)
+// Ensure that the request body is an array of objects with the following
+// schema. If not, return a 400 response with an error message.
+const UpdateUsersZodSchema = z.array(
+	z.object({
+		QR: z.string(),
+		name: z.string(),
+		congregation: z.string(),
+		dgroup: z.string()
+	})
+)
 
-	try {
-		const requestBody = UsersFromRequestSchema.parse(request.body)
+export type UpdateUsersRequestBody = z.infer<typeof UpdateUsersZodSchema>
 
-		// First get all the existing users
-		const existingUsers = await db.users.getAllDocs()
-
-		const test = await db.users
-			.query()
-			.where('dGroup', '==', '4pm')
-			.where('cardQrCodes', '==', ['hi'])
-			.get()
-
-		// Attempt to parse and validate the request body against the schema
-
-		// If successful, requestBody is now typed as UsersFromRequest
-		for (const { QR, congregation, dgroup, name } of requestBody) {
-			// Your logic here...
+/** Called by the google-scripts function to update the users in the database */
+export const updateUsers = onRequest(
+	{ region: 'australia-southeast1' },
+	async (request, response) => {
+		if (request.method !== 'POST') {
+			response
+				.status(405)
+				.send('Method Not Allowed. Needs to be a POST request')
+			return
 		}
 
-		response.send('Processed POST request!!')
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			// Handle validation errors
-			logger.error('Validation of request.body failed', error.errors)
-			response.status(400).send('Invalid request body')
-		} else {
-			// Handle other errors
-			logger.error('An error occurred', error)
-			response.status(500).send('Internal Server Error')
+		try {
+			const requestBody = UpdateUsersZodSchema.parse(request.body)
+
+			// Check for conflicting users
+			const uniqueUserNames = new Set()
+			const conflictingUsers: typeof requestBody = []
+
+			for (const user of requestBody) {
+				const username = user.name.toLocaleLowerCase().trim()
+				if (uniqueUserNames.has(username)) {
+					conflictingUsers.push(user)
+					continue
+				}
+				uniqueUserNames.add(username)
+			}
+			if (conflictingUsers.length) {
+				console.error('Conflicting users found', conflictingUsers)
+				throw new Error('Conflicting users found')
+			}
+
+			// First get all the existing users
+			const existingUsers = await db.users.getAllDocs()
+
+			// If successful, requestBody is now typed as UsersFromRequest
+			for (const { QR, congregation, dgroup, name } of requestBody) {
+				// Your logic here...
+
+				// If the user exists, then we are running an update
+				if (
+					existingUsers.find(user => user.fullNameLowercase === name)
+				) {
+					console.log('User already found!')
+					continue
+				}
+
+				// Otherwise, we are running an insert
+				await db.users.add({
+					cardQrCode: QR,
+					fullNameLowercase: name.toLowerCase().trim()
+				})
+			}
+
+			response.send('Processed POST request!!')
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				// Handle validation errors
+				logger.error('Validation of request.body failed', error.errors)
+				response.status(400).send('Invalid request body')
+			} else {
+				// Handle other errors
+				logger.error('An error occurred', error)
+				response.status(500).send(`Internal Server Error ${error}`)
+			}
 		}
 	}
-})
+)
+
+/** Called by the google-scripts function to update the users in the database */
+export const generateMetrics = onRequest(
+	{ region: 'australia-southeast1' },
+	async (request, response) => {
+		if (request.method !== 'POST') {
+			response
+				.status(405)
+				.send('Method Not Allowed. Needs to be a POST request')
+			return
+		}
+
+		// Ensure that the request body is an array of objects with the following
+		// schema. If not, return a 400 response with an error message.
+		const UsersFromRequestSchema = z.array(
+			z.object({
+				QR: z.string(),
+				name: z.string(),
+				congregation: z.string(),
+				dgroup: z.string()
+			})
+		)
+
+		try {
+			const requestBody = UsersFromRequestSchema.parse(request.body)
+
+			// Check for conflicting users
+			const uniqueUserNames = new Set()
+			const conflictingUsers: typeof requestBody = []
+
+			for (const user of requestBody) {
+				const username = user.name.toLocaleLowerCase().trim()
+				if (uniqueUserNames.has(username)) {
+					conflictingUsers.push(user)
+					continue
+				}
+				uniqueUserNames.add(username)
+			}
+			if (conflictingUsers.length) {
+				console.error('Conflicting users found', conflictingUsers)
+				throw new Error('Conflicting users found')
+			}
+
+			// First get all the existing users
+			const existingUsers = await db.users.getAllDocs()
+
+			// If successful, requestBody is now typed as UsersFromRequest
+			for (const { QR, congregation, dgroup, name } of requestBody) {
+				// Your logic here...
+
+				// If the user exists, then we are running an update
+				if (
+					existingUsers.find(user => user.fullNameLowercase === name)
+				) {
+					console.log('User already found!')
+					continue
+				}
+
+				// Otherwise, we are running an insert
+				await db.users.add({
+					cardQrCode: QR,
+					fullNameLowercase: name.toLowerCase().trim()
+				})
+			}
+
+			response.send('Processed POST request!!')
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				// Handle validation errors
+				logger.error('Validation of request.body failed', error.errors)
+				response.status(400).send('Invalid request body')
+			} else {
+				// Handle other errors
+				logger.error('An error occurred', error)
+				response.status(500).send(`Internal Server Error ${error}`)
+			}
+		}
+	}
+)
