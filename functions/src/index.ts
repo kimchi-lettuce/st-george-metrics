@@ -54,21 +54,29 @@ export const updateUsers = onRequest(
 			const uniqueUserNames = new Set()
 			const conflictingUsers = new Set()
 
+			/** Get the config blacklist */
+			const configBlacklist = await db.config.get()
+
 			for (const user of requestBody) {
 				const username = user.name.toLocaleLowerCase().trim()
+				// If the user is in the blacklist, then we skip them
+				if (configBlacklist.blacklistUsersForMetrics.includes(username)) {
+					continue
+				}
+
+				// If the user is already in the set, then we have a conflict
 				if (uniqueUserNames.has(username)) {
 					conflictingUsers.add(username)
 					continue
 				}
 				uniqueUserNames.add(username)
 			}
-			if (conflictingUsers.keys.length > 0) {
+			if (conflictingUsers.size > 0) {
+				const conflictUsersStr = JSON.stringify([...conflictingUsers])
 				logger.error(
-					`Conflicting users found: ${JSON.stringify([
-						...conflictingUsers
-					])}`
+					`Conflicting users found: ${conflictUsersStr}`
 				)
-				throw new Error('Conflicting users found')
+				throw new Error(`Conflicting users found: ${conflictUsersStr}`)
 			}
 
 			// First get all the existing users
@@ -88,8 +96,6 @@ export const updateUsers = onRequest(
 					logger.log('User already found!')
 					continue
 				}
-
-				db.users.query().where('', '==', 'yo').get()
 
 				// Otherwise, we are running an insert
 				await db.users.add({
