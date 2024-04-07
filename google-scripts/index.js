@@ -61,6 +61,8 @@ async function main() {
 			contentType: 'application/json',
 			// Convert the JavaScript object to a JSON string
 			payload: JSON.stringify(users),
+			// FIXME: ⚠️ Note that this prevents the error from being thrown.
+			// This is not a good practice.
       		muteHttpExceptions: true
 		}
 
