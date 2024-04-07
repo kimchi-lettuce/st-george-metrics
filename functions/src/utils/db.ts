@@ -2,7 +2,8 @@ import {
 	DocumentData,
 	CollectionReference,
 	Query,
-	OrderByDirection
+	OrderByDirection,
+	DocumentReference
 } from 'firebase-admin/firestore'
 import * as admin from 'firebase-admin'
 import { generateWeekId } from './week'
@@ -18,22 +19,34 @@ type DocDataWithIdAndRef<T> = T & {
 	ref: admin.firestore.DocumentReference<T>
 }
 
+/** Helper function to prettify the firestore snapshot. It returns the document
+ * data with the non-enumerable properties `id` and `ref` added to it */
+function prettifyFirestoreSnapshot<T>(doc: admin.firestore.QueryDocumentSnapshot<T> | admin.firestore.DocumentSnapshot<T>) {
+	const output = { ...doc.data() }
+	Object.defineProperty(output, 'id', {
+		value: doc.id,
+		enumerable: false
+	})
+	Object.defineProperty(output, 'ref', {
+		value: doc.ref,
+		enumerable: false
+	})
+	return output as DocDataWithIdAndRef<T>
+}
+
 /** Helper function to prettify the query data. It returns the document data as
  * an array and adds the non-enumerable properties `id` and `ref` to each
  * document */
 async function prettifyQueryData<T = DocumentData>(query: Query<T>) {
 	return (await query.get()).docs.map(doc => {
-		const output = { ...doc.data() }
-		Object.defineProperty(output, 'id', {
-			value: doc.id,
-			enumerable: false
-		})
-		Object.defineProperty(output, 'ref', {
-			value: doc.ref,
-			enumerable: false
-		})
-		return output
+		return prettifyFirestoreSnapshot(doc)
 	}) as DocDataWithIdAndRef<T>[]
+}
+
+/** Helper function to prettify the document data. It returns the document data
+ * with the non-enumerable properties `id` and `ref` added to it */
+async function prettifyDocData<T = DocumentData>(docRef: DocumentReference<T>) {
+	return prettifyFirestoreSnapshot(await docRef.get())
 }
 
 /** Used by {@link createTypeSafeQueryBuilder} to create a typesafe query
@@ -142,6 +155,10 @@ const dbCollections = {
 	output: createCollection<Output>('output')
 }
 
+/** Reference to the `config/all` document in the firestore. It is a single
+ * document where we store all the configuration settings for the app */
+const configAllDocRef = admin.firestore().collection('config').doc('all') as admin.firestore.DocumentReference<Config>
+
 const db = {
 	...dbCollections,
 	/** Helper reference to get the current week's output document */
@@ -149,10 +166,14 @@ const db = {
 	/** Reference to the `config/all` document in the firestore. It is
 	 * a single document where we store all the configuration settings for the
 	 * app */
-	config: admin
-		.firestore()
-		.collection('config')
-		.doc('all') as admin.firestore.DocumentReference<Config>
+	config: {
+		/** Reference to the `config/all` document in the firestore. It is a
+		 * single document where we store all the configuration settings for the
+		 * app */
+		ref: configAllDocRef, 
+		/** Get the document data for the `config/all` document */
+		get: () => prettifyDocData(configAllDocRef)
+	}
 }
 
 export { db, admin }
