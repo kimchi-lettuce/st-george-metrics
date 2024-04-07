@@ -60,17 +60,19 @@ async function main() {
 			method: 'post',
 			contentType: 'application/json',
 			// Convert the JavaScript object to a JSON string
-			payload: JSON.stringify(users)
+			payload: JSON.stringify(users),
+      		muteHttpExceptions: true
 		}
+
 
 		const response = await UrlFetchApp.fetch(
 			'https://updateusers-llsapw72ka-ts.a.run.app/',
 			options
 		)
 
-		console.log({ response })
+		console.log(response.getContentText())
 	} catch (err) {
-		console.error('Error fetching data from the server', err)
+		console.error(err.message)
 	}
 
 	// // Get the current active spreadsheet
