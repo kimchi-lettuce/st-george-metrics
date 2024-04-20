@@ -3,7 +3,8 @@ import {
 	CollectionReference,
 	Query,
 	OrderByDirection,
-	DocumentReference
+	DocumentReference,
+	Timestamp
 } from 'firebase-admin/firestore'
 import * as admin from 'firebase-admin'
 import { generateWeekId } from './week'
@@ -11,7 +12,7 @@ import { generateWeekId } from './week'
 // This should only be called once as it initializes the firebase admin sdk
 admin.initializeApp()
 
-type DocDataWithIdAndRef<T> = T & {
+export type DocDataWithIdAndRef<T> = T & {
 	/** (non-enumerable) - Id of the firestore document */
 	id: string
 	/** (non-enumerable) - Reference of the firestore document, for easy
@@ -21,7 +22,11 @@ type DocDataWithIdAndRef<T> = T & {
 
 /** Helper function to prettify the firestore snapshot. It returns the document
  * data with the non-enumerable properties `id` and `ref` added to it */
-function prettifyFirestoreSnapshot<T>(doc: admin.firestore.QueryDocumentSnapshot<T> | admin.firestore.DocumentSnapshot<T>) {
+function prettifyFirestoreSnapshot<T>(
+	doc:
+		| admin.firestore.QueryDocumentSnapshot<T>
+		| admin.firestore.DocumentSnapshot<T>
+) {
 	const output = { ...doc.data() }
 	Object.defineProperty(output, 'id', {
 		value: doc.id,
@@ -111,16 +116,28 @@ const createCollection = <T = DocumentData>(collectionName: string) => {
 			collectionRef.doc(id) as admin.firestore.DocumentReference<T>,
 		/** Add a new document to the collection. Returns a promise with the
 		 * document id and reference */
-		add: async (data: T) => {
-			const docRef = await collectionRef.add(data)
-			return { id: docRef.id, ref: docRef, ...data }
+		add: async (data: T, id?: string) => {
+			if (id) {
+				// Check that the document with the id does not already exist.
+				// If it does, throw an error
+				const docRef = collectionRef.doc(id)
+				const docSnapshot = await docRef.get()
+				if (docSnapshot.exists) {
+					throw new Error(`Document with ID ${id} already exists.`)
+				}
+				await docRef.set(data)
+				return { id, ref: docRef, ...data }
+			} else {
+				const docRef = await collectionRef.add(data)
+				return { id: docRef.id, ref: docRef, ...data }
+			}
 		},
 		/** Allows you to create typesafe queries */
 		query: () => createTypeSafeQueryBuilder(collectionRef)
 	}
 }
 
-type Users = {
+export type Users = {
 	/** The user's full name in lowercase. Keeping the case consistent allows us
 	 * to be able to query with an agreed format */
 	fullNameLowercase: string
@@ -137,13 +154,33 @@ type Output = {
 	[functionName: string]: number
 }
 
+/** This is what stores the individual attendance records */
+type Attendance = {
+	/** The date of the attendance record */
+	date: Timestamp
+	/** The user id of the person who attended */
+	uid: string
+}
+
+/** Data to persist in the `all` document of the `settings` firestore collection */
+type Settings = {
+	/** What the latest attendance entry date is. So we know where to pick up
+	 * from and not have duplicate entries for the same attendance entry */
+	latestAttendanceDate: Timestamp
+}
+
+const UserBlacklistReasons = {
+	'DUPLICATE_FULLNAME_IN_USER_LIST': 'For the specific user, the fullname is a duplicate in the user list',
+	'ATTENDANCE_NOT_MATCHING_TO_USER': 'For the specific attendance entry, the manual fullname provided does not match any user in the user list',
+}
+
 type Config = {
 	/** Church staff email recipients of our attendance metrics */
 	emailRecipients: string[]
 	/** Developer email recipients to send the warning email to */
 	emailOfDevelopers: string[]
-	/** TODO: uid of users to not run metrics for */
-	blacklistUsersForMetrics: string[]
+	/** Names of users to not run metrics for */
+	blacklistUsersForMetrics: {name: string, reason: keyof typeof UserBlacklistReasons}[]
 	/** If the number of function calls exceeds this, a warning email is sent to
 	 * the developers */
 	maxWeeklyFunctionCalls: number
@@ -152,12 +189,21 @@ type Config = {
 const dbCollections = {
 	users: createCollection<Users>('users'),
 	/** Collection for storing the output to send to the email recipients */
-	output: createCollection<Output>('output')
+	output: createCollection<Output>('output'),
+	attendance: createCollection<Attendance>('attendance')
 }
 
 /** Reference to the `config/all` document in the firestore. It is a single
  * document where we store all the configuration settings for the app */
-const configAllDocRef = admin.firestore().collection('config').doc('all') as admin.firestore.DocumentReference<Config>
+const configAllDocRef = admin
+	.firestore()
+	.collection('config')
+	.doc('all') as admin.firestore.DocumentReference<Config>
+
+const settingsAllDocRef = admin
+	.firestore()
+	.collection('settings')
+	.doc('all') as admin.firestore.DocumentReference<Settings>
 
 const db = {
 	...dbCollections,
@@ -170,9 +216,16 @@ const db = {
 		/** Reference to the `config/all` document in the firestore. It is a
 		 * single document where we store all the configuration settings for the
 		 * app */
-		ref: configAllDocRef, 
+		ref: configAllDocRef,
 		/** Get the document data for the `config/all` document */
 		get: () => prettifyDocData(configAllDocRef)
+	},
+	appSettings: {
+		/** Reference to the `settings` document in the firestore. It is a single
+		 * document where we store all the settings for the app */
+		ref: settingsAllDocRef,
+		/** Get the document data for the `settings` document */
+		get: () => prettifyDocData(settingsAllDocRef)
 	}
 }
 
