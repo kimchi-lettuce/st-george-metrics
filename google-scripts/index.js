@@ -1,16 +1,15 @@
 const SHEET_NAME = 'All Responses'
 
 function getUsers() {
-	var spreadsheet = SpreadsheetApp.getActiveSpreadsheet()
-
-	var sheet = spreadsheet.getSheetByName('test-users')
+	const spreadsheet = SpreadsheetApp.getActiveSpreadsheet()
+	const sheet = spreadsheet.getSheetByName('test-users')
 
 	// Start on
 	// - 4th row
 	// - 1st column
 	// - for "x" rows
 	// - grabbing the "y" columns
-	var rows = sheet.getRange(4, 1, sheet.getLastRow() - 1, 3).getValues()
+	const rows = sheet.getRange(4, 1, sheet.getLastRow() - 1, 3).getValues()
 
 	const ans = []
 	for (const row of rows) {
@@ -22,6 +21,45 @@ function getUsers() {
 			dgroup: 'youth'
 		})
 	}
+	return ans
+}
+
+function getAttendance() {
+	const spreadsheet = SpreadsheetApp.getActiveSpreadsheet()
+	const sheet = spreadsheet.getSheetByName('All Responses')
+
+	const START_ROW = 2
+	const START_COL = 1
+	const NUM_ROWS = sheet.getLastRow() - 1
+	const NUM_COLS = 4
+
+	/** @type any[] */
+	const rows = sheet
+		.getRange(START_ROW, START_COL, NUM_ROWS, NUM_COLS)
+		.getValues()
+
+	const ans = []
+
+	// Let's just grab two weeks of data from the first row
+	const firstRowDate = new Date(rows[0][0])
+	const twoWeeksBeforeFirstRowDate = new Date(
+		firstRowDate.getTime() - 14 * 24 * 60 * 60 * 1000
+	)
+
+	for (const row of rows) {
+		const date = new Date(row[0])
+		if (date < twoWeeksBeforeFirstRowDate) continue
+
+		const fullnameLowercase = `${row[2]} ${row[3]}`
+			.toLocaleLowerCase()
+			.trim()
+		const identification =
+			row[1] === '.' ? { fullnameLowercase } : { QRcode: row[1] }
+
+		const rowData = { date, identification }
+		ans.push(rowData)
+	}
+	console.log('Attendance Data Length for the 2 Weeks: ', ans.length)
 	return ans
 }
 
@@ -54,25 +92,35 @@ function writeToTestSheet(ans) {
 
 async function main() {
 	const users = getUsers()
+	const attendance = getAttendance()
 
 	try {
-		var options = {
+		// var options = {
+		// 	method: 'post',
+		// 	contentType: 'application/json',
+		// 	// Convert the JavaScript object to a JSON string
+		// 	payload: JSON.stringify(users),
+		// 	// FIXME: ⚠️ Note that this prevents the error from being thrown.
+		// 	// This is not a good practice.
+		// 	muteHttpExceptions: true
+		// }
+		// const response = await UrlFetchApp.fetch(
+		// 	'https://updateusers-llsapw72ka-ts.a.run.app/',
+		// 	options
+		// )
+		// console.log(response.getContentText())
+
+		var attendanceOptions = {
 			method: 'post',
 			contentType: 'application/json',
-			// Convert the JavaScript object to a JSON string
-			payload: JSON.stringify(users),
-			// FIXME: ⚠️ Note that this prevents the error from being thrown.
-			// This is not a good practice.
-      		muteHttpExceptions: true
+			payload: JSON.stringify(attendance),
+			muteHttpExceptions: true
 		}
-
-
-		const response = await UrlFetchApp.fetch(
-			'https://updateusers-llsapw72ka-ts.a.run.app/',
-			options
+		const attendanceResponse = await UrlFetchApp.fetch(
+			'https://updateattendance-llsapw72ka-ts.a.run.app',
+			attendanceOptions
 		)
-
-		console.log(response.getContentText())
+		console.log(attendanceResponse.getContentText())
 	} catch (err) {
 		console.error(err.message)
 	}
