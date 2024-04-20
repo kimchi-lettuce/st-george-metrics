@@ -60,7 +60,9 @@ export const updateUsers = onRequest(
 			for (const user of requestBody) {
 				const username = user.name.toLocaleLowerCase().trim()
 				// If the user is in the blacklist, then we skip them
-				if (configBlacklist.blacklistUsersForMetrics.includes(username)) {
+				if (
+					configBlacklist.blacklistUsersForMetrics.includes(username)
+				) {
 					continue
 				}
 
@@ -73,9 +75,7 @@ export const updateUsers = onRequest(
 			}
 			if (conflictingUsers.size > 0) {
 				const conflictUsersStr = JSON.stringify([...conflictingUsers])
-				logger.error(
-					`Conflicting users found: ${conflictUsersStr}`
-				)
+				logger.error(`Conflicting users found: ${conflictUsersStr}`)
 				throw new Error(`Conflicting users found: ${conflictUsersStr}`)
 			}
 
@@ -104,6 +104,51 @@ export const updateUsers = onRequest(
 				})
 			}
 			response.send('Processed POST request!!')
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				// Handle validation errors
+				logger.error('Validation of request.body failed', error.errors)
+				response
+					.status(400)
+					.send(`Invalid request body ${error.errors}`)
+			} else {
+				// Handle other errors
+				logger.error('An error occurred', error)
+				response.status(500).send(`Internal Server Error ${error}`)
+			}
+		}
+	}
+)
+
+// Ensure that the request body is an array of objects with the following
+// schema. If not, return a 400 response with an error message.
+const UpdateAttendanceZodSchema = z.array(
+    z.object({
+        date: z.string(),
+        identification: z.union([
+            z.object({
+                QRcode: z.string()
+            }),
+            z.object({
+                fullnameLowercase: z.string()
+            })
+        ])
+    })
+)
+
+export const updateAttendance = onRequest(
+	{ region: 'australia-southeast1' },
+	async (request, response) => {
+		if (request.method !== 'POST') {
+			response
+				.status(405)
+				.send('Method Not Allowed. Needs to be a POST request')
+			return
+		}
+
+		try {
+			const requestBody = UpdateAttendanceZodSchema.parse(request.body)
+			console.log(requestBody)
 		} catch (error) {
 			if (error instanceof z.ZodError) {
 				// Handle validation errors
