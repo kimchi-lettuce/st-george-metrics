@@ -1,11 +1,4 @@
-import {
-	DocumentData,
-	CollectionReference,
-	Query,
-	OrderByDirection,
-	DocumentReference,
-	Timestamp
-} from 'firebase-admin/firestore'
+import { DocumentData, CollectionReference, Query, OrderByDirection, DocumentReference, Timestamp } from 'firebase-admin/firestore'
 import * as admin from 'firebase-admin'
 import { generateWeekId } from './week'
 
@@ -22,11 +15,7 @@ export type DocDataWithIdAndRef<T> = T & {
 
 /** Helper function to prettify the firestore snapshot. It returns the document
  * data with the non-enumerable properties `id` and `ref` added to it */
-function prettifyFirestoreSnapshot<T>(
-	doc:
-		| admin.firestore.QueryDocumentSnapshot<T>
-		| admin.firestore.DocumentSnapshot<T>
-) {
+function prettifyFirestoreSnapshot<T>(doc: admin.firestore.QueryDocumentSnapshot<T> | admin.firestore.DocumentSnapshot<T>) {
 	const output = { ...doc.data() }
 	Object.defineProperty(output, 'id', {
 		value: doc.id,
@@ -65,28 +54,19 @@ interface TypeSafeQueryBuilder<T> {
 		opStr: FirebaseFirestore.WhereFilterOp,
 		value: T[K]
 	): TypeSafeQueryBuilder<T>
-	orderBy<K extends keyof T>(
-		fieldPath: K,
-		directionStr?: OrderByDirection
-	): TypeSafeQueryBuilder<T>
+	orderBy<K extends keyof T>(fieldPath: K, directionStr?: OrderByDirection): TypeSafeQueryBuilder<T>
 	limit(limit: number): TypeSafeQueryBuilder<T>
 	get(): Promise<DocDataWithIdAndRef<T>[]>
 }
 
 /** Helper function to create a typesafe query builder */
-function createTypeSafeQueryBuilder<T>(
-	query: Query<T>
-): TypeSafeQueryBuilder<T> {
+function createTypeSafeQueryBuilder<T>(query: Query<T>): TypeSafeQueryBuilder<T> {
 	return {
 		where(fieldPath, opStr, value) {
-			return createTypeSafeQueryBuilder(
-				query.where(fieldPath as string, opStr, value)
-			)
+			return createTypeSafeQueryBuilder(query.where(fieldPath as string, opStr, value))
 		},
 		orderBy(fieldPath, directionStr) {
-			return createTypeSafeQueryBuilder(
-				query.orderBy(fieldPath as string, directionStr)
-			)
+			return createTypeSafeQueryBuilder(query.orderBy(fieldPath as string, directionStr))
 		},
 		limit(limit) {
 			return createTypeSafeQueryBuilder(query.limit(limit))
@@ -100,9 +80,7 @@ function createTypeSafeQueryBuilder<T>(
 
 /** Helper function to create a collection with typesafe actions */
 const createCollection = <T = DocumentData>(collectionName: string) => {
-	const collectionRef = admin
-		.firestore()
-		.collection(collectionName) as CollectionReference<T>
+	const collectionRef = admin.firestore().collection(collectionName) as CollectionReference<T>
 
 	return {
 		/** Gets the firestore collection ref for any custom actions that this
@@ -112,8 +90,7 @@ const createCollection = <T = DocumentData>(collectionName: string) => {
 		getAllDocs: () => prettifyQueryData(collectionRef),
 		/** Specify the document id to get a firestore DocumentReference with
 		 * types applied to it. So that your chained actions have typesafety */
-		doc: (id: string) =>
-			collectionRef.doc(id) as admin.firestore.DocumentReference<T>,
+		doc: (id: string) => collectionRef.doc(id) as admin.firestore.DocumentReference<T>,
 		/** Add a new document to the collection. Returns a promise with the
 		 * document id and reference */
 		add: async (data: T, id?: string) => {
@@ -170,17 +147,21 @@ type Settings = {
 }
 
 const UserBlacklistReasons = {
-	'DUPLICATE_FULLNAME_IN_USER_LIST': 'For the specific user, the fullname is a duplicate in the user list',
-	'ATTENDANCE_NOT_MATCHING_TO_USER': 'For the specific attendance entry, the manual fullname provided does not match any user in the user list',
+	DUPLICATE_FULLNAME_IN_USER_LIST: 'For the specific user, the fullname is a duplicate in the user list',
+	ATTENDANCE_NOT_MATCHING_TO_USER: 'For the specific attendance entry, the manual fullname provided does not match any user in the user list'
 }
 
-type Config = {
+export type Config = {
 	/** Church staff email recipients of our attendance metrics */
 	emailRecipients: string[]
 	/** Developer email recipients to send the warning email to */
 	emailOfDevelopers: string[]
 	/** Names of users to not run metrics for */
-	blacklistUsersForMetrics: {name: string, reason: keyof typeof UserBlacklistReasons}[]
+	blacklistUsersForMetrics: {
+		/** Could either be the fullname or the cardQrCode */
+		identity: string
+		reason: keyof typeof UserBlacklistReasons
+	}[]
 	/** If the number of function calls exceeds this, a warning email is sent to
 	 * the developers */
 	maxWeeklyFunctionCalls: number
@@ -194,16 +175,14 @@ const dbCollections = {
 }
 
 /** Reference to the `config/all` document in the firestore. It is a single
- * document where we store all the configuration settings for the app */
-const configAllDocRef = admin
-	.firestore()
-	.collection('config')
-	.doc('all') as admin.firestore.DocumentReference<Config>
-
-const settingsAllDocRef = admin
-	.firestore()
-	.collection('settings')
-	.doc('all') as admin.firestore.DocumentReference<Settings>
+ * document where we store all the configuration settings for the app. This
+ * differs from settings in that we are encouraged to edit the configs, but to
+ * not edit the persistent settings */
+const configAllDocRef = admin.firestore().collection('config').doc('all') as admin.firestore.DocumentReference<Config>
+/** Reference to the `settings/all` document in the firestore. It is a single
+ * document where we store all the settings for the app. FIXME: Could think of a
+ * better name in contrast to config */
+const settingsAllDocRef = admin.firestore().collection('settings').doc('all') as admin.firestore.DocumentReference<Settings>
 
 const db = {
 	...dbCollections,
