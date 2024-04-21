@@ -137,6 +137,8 @@ type Attendance = {
 	date: Timestamp
 	/** The user id of the person who attended */
 	uid: string
+	QRcode?: string
+	fullnameLowercase?: string
 }
 
 /** Data to persist in the `all` document of the `settings` firestore collection */
