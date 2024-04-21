@@ -110,7 +110,7 @@ export const updateUsers = onRequest({ region: 'australia-southeast1' }, async (
 // schema. If not, return a 400 response with an error message.
 const UpdateAttendanceZodSchema = z.array(
 	z.object({
-		date: z.date(),
+		timestamp: z.number(),
 		QRcode: z.string().nullable(),
 		fullnameLowercase: z.string().nullable()
 	})
@@ -129,7 +129,7 @@ export const updateAttendance = onRequest({ region: 'australia-southeast1' }, as
 
 		let latestAttendanceDate: Date | null = null
 		for (const entry of requestBody) {
-			const { date, QRcode, fullnameLowercase } = entry
+			const { timestamp, QRcode, fullnameLowercase } = entry
 
 			let user: DocDataWithIdAndRef<Users> | null = null
 			// Identify the user-id
@@ -151,6 +151,10 @@ export const updateAttendance = onRequest({ region: 'australia-southeast1' }, as
 					identity = QRcode
 				}
 
+				// TODO: potentially add a backlog of the error attendance
+				// entries, so that we can retry them after a fix for their
+				// identity is made
+
 				await db.config.ref.update({
 					blacklistUsersForMetrics: admin.firestore.FieldValue.arrayUnion({
 						identity,
@@ -160,13 +164,17 @@ export const updateAttendance = onRequest({ region: 'australia-southeast1' }, as
 				continue
 			}
 
+			const date = new Date(timestamp)
 			// Update the latest attendance date
 			if (!latestAttendanceDate || date > latestAttendanceDate) {
 				latestAttendanceDate = date
 			}
+			const { cardQrCode, fullNameLowercase } = user
 			await db.attendance.add({
 				date: admin.firestore.Timestamp.fromDate(date),
-				uid: user.id
+				uid: user.id,
+				QRcode: cardQrCode,
+				fullnameLowercase: fullNameLowercase
 			})
 		}
 		await db.appSettings.ref.update({
