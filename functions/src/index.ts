@@ -122,6 +122,9 @@ export const updateAttendance = onRequest({ region: 'australia-southeast1' }, as
 		return
 	}
 
+	// TODO: wrap this in a transaction, so if there are any errors, we can
+	// rollback the changes
+
 	try {
 		const requestBody = UpdateAttendanceZodSchema.parse(request.body)
 		const users = await db.users.getAllDocs()
@@ -177,10 +180,11 @@ export const updateAttendance = onRequest({ region: 'australia-southeast1' }, as
 				fullnameLowercase: fullNameLowercase
 			})
 		}
-		await db.appSettings.ref.update({
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			latestAttendanceDate: admin.firestore.Timestamp.fromDate(latestAttendanceDate!)
-		})
+		if (latestAttendanceDate) {
+			await db.config.ref.update({
+				latestAttendanceDate: admin.firestore.Timestamp.fromDate(latestAttendanceDate)
+			})
+		}
 	} catch (error) {
 		if (error instanceof z.ZodError) {
 			// Handle validation errors

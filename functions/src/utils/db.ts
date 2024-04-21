@@ -167,6 +167,9 @@ export type Config = {
 	/** If the number of function calls exceeds this, a warning email is sent to
 	 * the developers */
 	maxWeeklyFunctionCalls: number
+	/** What the latest attendance entry date is. So we know where to pick up
+	 * from and not have duplicate entries for the same attendance entry */
+	latestAttendanceDate: Timestamp
 }
 
 const dbCollections = {
@@ -181,10 +184,6 @@ const dbCollections = {
  * differs from settings in that we are encouraged to edit the configs, but to
  * not edit the persistent settings */
 const configAllDocRef = admin.firestore().collection('config').doc('all') as admin.firestore.DocumentReference<Config>
-/** Reference to the `settings/all` document in the firestore. It is a single
- * document where we store all the settings for the app. FIXME: Could think of a
- * better name in contrast to config */
-const settingsAllDocRef = admin.firestore().collection('settings').doc('all') as admin.firestore.DocumentReference<Settings>
 
 const db = {
 	...dbCollections,
@@ -200,13 +199,6 @@ const db = {
 		ref: configAllDocRef,
 		/** Get the document data for the `config/all` document */
 		get: () => prettifyDocData(configAllDocRef)
-	},
-	appSettings: {
-		/** Reference to the `settings` document in the firestore. It is a single
-		 * document where we store all the settings for the app */
-		ref: settingsAllDocRef,
-		/** Get the document data for the `settings` document */
-		get: () => prettifyDocData(settingsAllDocRef)
 	}
 }
 
