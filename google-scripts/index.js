@@ -34,29 +34,32 @@ function getAttendance() {
 	const NUM_COLS = 4
 
 	/** @type any[] */
-	const rows = sheet
-		.getRange(START_ROW, START_COL, NUM_ROWS, NUM_COLS)
-		.getValues()
+	const rows = sheet.getRange(START_ROW, START_COL, NUM_ROWS, NUM_COLS).getValues()
 
 	const ans = []
 
+	// TODO: but what if the data was paused for a while. The question is, do I
+	// need to explicity retrieve the latestAttendanceDate from the db?
+
 	// Let's just grab two weeks of data from the first row
 	const firstRowDate = new Date(rows[0][0])
-	const twoWeeksBeforeFirstRowDate = new Date(
-		firstRowDate.getTime() - 14 * 24 * 60 * 60 * 1000
-	)
+	const twoWeeksBeforeFirstRowDate = new Date(firstRowDate.getTime() - 14 * 24 * 60 * 60 * 1000)
 
-	for (const row of rows) {
-		const date = new Date(row[0])
+	for (const row of rows.splice(0, 10)) {
+		/** @type Date */
+		const date = row[0]
+		if (date instanceof Date === false) throw new Error('row[0] is not a Date object')
+		
+		const QRcode = row[1]
 		if (date < twoWeeksBeforeFirstRowDate) continue
 
-		const fullnameLowercase = `${row[2]} ${row[3]}`
-			.toLocaleLowerCase()
-			.trim()
-		const identification =
-			row[1] === '.' ? { fullnameLowercase } : { QRcode: row[1] }
+		const fullnameLowercase = QRcode === '.' ? `${row[2]} ${row[3]}`.toLocaleLowerCase().trim() : null
 
-		const rowData = { date, identification }
+		const rowData = {
+			timestamp: date.getTime(),
+			fullnameLowercase,
+			QRcode: QRcode === '.' ? null : QRcode
+		}
 		ans.push(rowData)
 	}
 	console.log('Attendance Data Length for the 2 Weeks: ', ans.length)
@@ -85,9 +88,7 @@ function writeToTestSheet(ans) {
 	}
 
 	// Write the data to the "Test" sheet, starting at the first row and first column
-	testSheet
-		.getRange(1, 1, dataToWrite.length, dataToWrite[0].length)
-		.setValues(dataToWrite)
+	testSheet.getRange(1, 1, dataToWrite.length, dataToWrite[0].length).setValues(dataToWrite)
 }
 
 async function main() {
@@ -116,10 +117,7 @@ async function main() {
 			payload: JSON.stringify(attendance),
 			muteHttpExceptions: true
 		}
-		const attendanceResponse = await UrlFetchApp.fetch(
-			'https://updateattendance-llsapw72ka-ts.a.run.app',
-			attendanceOptions
-		)
+		const attendanceResponse = await UrlFetchApp.fetch('https://updateattendance-llsapw72ka-ts.a.run.app', attendanceOptions)
 		console.log(attendanceResponse.getContentText())
 	} catch (err) {
 		console.error(err.message)
