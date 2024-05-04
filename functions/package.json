@@ -9,6 +9,7 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "npm run build && firebase deploy --only functions",
+    "deploy:getLatestAttendanceEntryDate": "npm run build && firebase deploy --only functions:getLatestAttendanceEntryDate",
     "deploy:updateUsers": "npm run build && firebase deploy --only functions:updateUsers",
     "deploy:updateAttendance": "npm run build && firebase deploy --only functions:updateAttendance",
     "logs": "firebase functions:log"
