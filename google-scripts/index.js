@@ -54,7 +54,12 @@ function getUsers() {
 	return ans
 }
 
-function getAttendance() {
+/**
+ * @param {Date} lastEntryInDb This is the last recorded entry in the db. This
+ * means that we only need to get the attendance data that occurs after this
+ * date, to update the db
+ * @returns */
+function getAttendance(lastEntryInDb) {
 	const spreadsheet = SpreadsheetApp.getActiveSpreadsheet()
 	const sheet = spreadsheet.getSheetByName('All Responses')
 
@@ -65,30 +70,23 @@ function getAttendance() {
 
 	/** @type any[] */
 	const rows = sheet.getRange(START_ROW, START_COL, NUM_ROWS, NUM_COLS).getValues()
-
 	const ans = []
 
-	// TODO: but what if the data was paused for a while. The question is, do I
-	// need to explicity retrieve the latestAttendanceDate from the db?
-
 	// Let's just grab two weeks of data from the first row
-	const firstRowDate = new Date(rows[0][0])
-	const twoWeeksBeforeFirstRowDate = new Date(firstRowDate.getTime() - 14 * 24 * 60 * 60 * 1000)
-
-	for (const row of rows.splice(0, 10)) {
+	for (const row of rows) {
 		/** @type Date */
 		const date = row[0]
 		if (date instanceof Date === false) throw new Error('row[0] is not a Date object')
 
 		const QRcode = row[1]
-		if (date < twoWeeksBeforeFirstRowDate) continue
+		if (date < lastEntryInDb) continue
 
-		const fullnameLowercase = QRcode === '.' ? `${row[2]} ${row[3]}`.toLocaleLowerCase().trim() : null
-
+		// Check if QRcode satisfies the REGEx
+		const hasQRCode = REGEX_QR_CODE.test(QRcode)
 		const rowData = {
 			timestamp: date.getTime(),
-			fullnameLowercase,
-			QRcode: QRcode === '.' ? null : QRcode
+			fullnameLowercase: !hasQRCode ? `${row[2]} ${row[3]}`.toLocaleLowerCase().trim() : null,
+			QRcode: hasQRCode ? QRcode : null
 		}
 		ans.push(rowData)
 	}
@@ -122,8 +120,11 @@ function writeToTestSheet(ans) {
 }
 
 async function main() {
+	// Replace this with a call to the db
+	const TEST_DATE = new Date(2024, 2, 31) 
+
 	const users = getUsers()
-	const attendance = getAttendance()
+	const attendance = getAttendance(TEST_DATE)
 
 	try {
 		// Send any updates for the users
