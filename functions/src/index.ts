@@ -129,75 +129,79 @@ const UpdateAttendanceZodSchema = z.array(
 	})
 )
 
+/** Used to take the attendance data from the excel sheet and update the
+ * attendance records in the database
+ *
+ * Known Bug: Full names are not unique. This means if a newcomer has the exact
+ * same name as someone already in the list, then their attendance entry will go
+ * to the user with that same full name */
 export const updateAttendance = onRequest({ region: 'australia-southeast1' }, async (request, response) => {
 	if (request.method !== 'POST') {
 		response.status(405).send('Method Not Allowed. Needs to be a POST request')
 		return
 	}
-
-	// TODO: wrap this in a transaction, so if there are any errors, we can
-	// rollback the changes
-
+	// Note we don't need to wrap this in a transaction. It's fine if we have an
+	// error in the middle of the process. We can just start from the latest
+	// attendance date and go from there
 	try {
 		const requestBody = UpdateAttendanceZodSchema.parse(request.body)
 		const users = await db.users.getAllDocs()
-		const blacklist = (await db.config.get()).blacklistUsersForMetrics
 
-		let latestAttendanceDate: Date | null = null
 		for (const entry of requestBody) {
+			// Note: The entry is often either just the
 			const { timestamp, QRcode, fullnameLowercase } = entry
 
 			let user: DocDataWithIdAndRef<Users> | null = null
-			// Identify the user-id
+
+			// Identify the user-id. Either by the QR code or the full name
+			// provided
 			if (QRcode) {
 				user = users.find(u => u.cardQrCode === QRcode) ?? null
 			} else if (fullnameLowercase) {
 				user = users.find(u => u.fullNameLowercase === fullnameLowercase) ?? null
 			}
-			if (!user) {
-				// Check if they are already in the blacklist
-				const blacklistNames = blacklist.filter(u => u.reason === 'ATTENDANCE_NOT_MATCHING_TO_USER').map(u => u.identity)
-				const fullNameNotInBlackList = fullnameLowercase && !blacklistNames.includes(fullnameLowercase)
-				const QRNotInBlackList = QRcode && !blacklistNames.includes(QRcode)
 
-				let identity = ''
-				if (fullNameNotInBlackList) {
-					identity = fullnameLowercase
-				} else if (QRNotInBlackList) {
-					identity = QRcode
+			// Here if the user is not currently found (most likely a newcomer),
+			// since they aren't in the main list of users. And so, we want to
+			// add them to the list. But if a name is already in the list, then
+			// we want to add them to the blacklist
+			if (!user) {
+				// If only QRcode, then we can't add them to the users list,
+				// then we need to raise an error, or error entry
+				if (QRcode) {
+					continue
 				}
 
-				// TODO: potentially add a backlog of the error attendance
-				// entries, so that we can retry them after a fix for their
-				// identity is made
-
-				await db.config.ref.update({
-					blacklistUsersForMetrics: admin.firestore.FieldValue.arrayUnion({
-						identity,
-						reason: 'ATTENDANCE_NOT_MATCHING_TO_USER'
-					} as Config['blacklistUsersForMetrics'][number])
-				})
-				continue
+				// If no user was found, and QRCode was not provided, then we
+				// are dealing with a newcomer. We should then add them to the
+				// list of users, and add the attendance entry.
+				if (fullnameLowercase) {
+					user = await db.users.add({
+						cardQrCode: 'NO-QR-CODE-NEWCOMER',
+						fullNameLowercase: fullnameLowercase
+					})
+				}
+				// Note: we don't add a `continue` here, this is because after
+				// adding the user to the list, we still want to add the
+				// attendance entry for the newcomer.
 			}
 
-			const date = new Date(timestamp)
-			// Update the latest attendance date
-			if (!latestAttendanceDate || date > latestAttendanceDate) {
-				latestAttendanceDate = date
+			if (!user) {
+				console.error('This should not happen. User not found.')
+				continue
 			}
 			const { cardQrCode, fullNameLowercase } = user
 			await db.attendance.add({
-				date: admin.firestore.Timestamp.fromDate(date),
+				date: admin.firestore.Timestamp.fromMillis(timestamp),
 				uid: user.id,
+				// The QRcode and fullnameLowercase are optional, but as
+				// additional info to help with debugging when looking at the
+				// attendance document
 				QRcode: cardQrCode,
 				fullnameLowercase: fullNameLowercase
 			})
 		}
-		if (latestAttendanceDate) {
-			await db.config.ref.update({
-				latestAttendanceDate: admin.firestore.Timestamp.fromDate(latestAttendanceDate)
-			})
-		}
+		response.send('Processed updateAttendance successfully!')
 	} catch (error) {
 		if (error instanceof z.ZodError) {
 			// Handle validation errors
