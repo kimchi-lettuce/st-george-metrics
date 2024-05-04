@@ -166,30 +166,16 @@ export const updateAttendance = onRequest({ region: 'australia-southeast1' }, as
 			// add them to the list. But if a name is already in the list, then
 			// we want to add them to the blacklist
 			if (!user) {
-				// If only QRcode, then we can't add them to the users list,
-				// then we need to raise an error, or error entry
-				if (QRcode) {
-					continue
-				}
-
-				// If no user was found, and QRCode was not provided, then we
-				// are dealing with a newcomer. We should then add them to the
-				// list of users, and add the attendance entry.
-				if (fullnameLowercase) {
-					user = await db.users.add({
-						cardQrCode: 'NO-QR-CODE-NEWCOMER',
-						fullNameLowercase: fullnameLowercase
-					})
-				}
-				// Note: we don't add a `continue` here, this is because after
-				// adding the user to the list, we still want to add the
-				// attendance entry for the newcomer.
-			}
-
-			if (!user) {
-				console.error('This should not happen. User not found.')
+				await db.config.ref.update({
+					attendanceEntryUserNotFound: admin.firestore.FieldValue.arrayUnion({
+						timestamp,
+						fullnameLowercase,
+						QRcode
+					} as Config['attendanceEntryUserNotFound'][number])
+				})
 				continue
 			}
+
 			const { cardQrCode, fullNameLowercase } = user
 			await db.attendance.add({
 				date: admin.firestore.Timestamp.fromMillis(timestamp),
