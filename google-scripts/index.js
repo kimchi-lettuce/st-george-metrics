@@ -1,22 +1,52 @@
 const SHEET_NAME = 'All Responses'
 
+/** Matches to QRCodes with a single captial letter followed by 3 digits */
+const REGEX_QR_CODE = /^[A-Z]\d{3}$/
+/** Config for where we get the user data from */
+const USERS_SPREADSHEET = {
+	sheetName: 'test-users',
+	startingRow: 2,
+	startingCol: 1,
+	numRows: sheet => sheet.getLastRow() - 1,
+	numCols: 3
+}
+
+/** TODO: Make it easy to switch in and out for the localhost or live */
+class BackendAPI {
+	constructor() {
+		this.baseUrl = 'https://updateusers-llsapw72ka-ts.a.run.app/'
+	}
+
+	async updateUsers(users) {
+		const response = await UrlFetchApp.fetch(this.baseUrl, {
+			method: 'post',
+			contentType: 'application/json',
+			payload: JSON.stringify(users)
+		})
+		return response.getContentText()
+	}
+}
+
 function getUsers() {
 	const spreadsheet = SpreadsheetApp.getActiveSpreadsheet()
-	const sheet = spreadsheet.getSheetByName('test-users')
+	const { numCols, numRows, sheetName, startingCol, startingRow } = USERS_SPREADSHEET
+	const sheet = spreadsheet.getSheetByName(sheetName)
 
 	// Start on
-	// - 4th row
+	// - 2nd row
 	// - 1st column
 	// - for "x" rows
 	// - grabbing the "y" columns
-	const rows = sheet.getRange(4, 1, sheet.getLastRow() - 1, 3).getValues()
+	const rows = sheet.getRange(startingRow, startingCol, numRows(sheet), numCols).getValues()
 
 	const ans = []
 	for (const row of rows) {
-		if (row[1] === '') continue
 		ans.push({
 			QR: row[0],
 			name: `${row[1]} ${row[2]}`.toLocaleLowerCase().trim(),
+			// TODO: Congregation and dgroup are just optional and hardcoded in
+			// atm. The backend requires these fields. Can potentially remove
+			// them later
 			congregation: 'st georges',
 			dgroup: 'youth'
 		})
@@ -49,7 +79,7 @@ function getAttendance() {
 		/** @type Date */
 		const date = row[0]
 		if (date instanceof Date === false) throw new Error('row[0] is not a Date object')
-		
+
 		const QRcode = row[1]
 		if (date < twoWeeksBeforeFirstRowDate) continue
 
@@ -96,60 +126,22 @@ async function main() {
 	const attendance = getAttendance()
 
 	try {
-		// var options = {
-		// 	method: 'post',
-		// 	contentType: 'application/json',
-		// 	// Convert the JavaScript object to a JSON string
-		// 	payload: JSON.stringify(users),
-		// 	// FIXME: ⚠️ Note that this prevents the error from being thrown.
-		// 	// This is not a good practice.
-		// 	muteHttpExceptions: true
-		// }
-		// const response = await UrlFetchApp.fetch(
-		// 	'https://updateusers-llsapw72ka-ts.a.run.app/',
-		// 	options
-		// )
-		// console.log(response.getContentText())
-
-		var attendanceOptions = {
+		// Send any updates for the users
+		const response = await UrlFetchApp.fetch('https://updateusers-llsapw72ka-ts.a.run.app/', {
 			method: 'post',
 			contentType: 'application/json',
-			payload: JSON.stringify(attendance),
-			muteHttpExceptions: true
-		}
-		const attendanceResponse = await UrlFetchApp.fetch('https://updateattendance-llsapw72ka-ts.a.run.app', attendanceOptions)
+			payload: JSON.stringify(users)
+		})
+		console.log(response.getContentText())
+
+		// Send any updates for the attendance
+		const attendanceResponse = await UrlFetchApp.fetch('https://updateattendance-llsapw72ka-ts.a.run.app', {
+			method: 'post',
+			contentType: 'application/json',
+			payload: JSON.stringify(attendance)
+		})
 		console.log(attendanceResponse.getContentText())
 	} catch (err) {
 		console.error(err.message)
 	}
-
-	// // Get the current active spreadsheet
-	// http: var spreadsheet = SpreadsheetApp.getActiveSpreadsheet()
-
-	// // Get the sheet named "All Responses"
-	// var sheet = spreadsheet.getSheetByName(SHEET_NAME)
-
-	// const START_ROW = 2
-	// const NUM_ROWS = 10
-
-	// // Read the first row's data
-	// var rows = sheet
-	// 	.getRange(START_ROW, 1, NUM_ROWS, sheet.getLastColumn())
-	// 	.getValues()
-
-	// const ans = []
-	// for (const row of rows) {
-	// 	const time = row[0]
-	// 	const qrCode = row[1]
-	// 	if (qrCode === '.') continue
-	// 	const name = users[qrCode]
-
-	// 	console.log({ time, name })
-	// 	ans.push({
-	// 		time,
-	// 		name
-	// 	})
-	// }
-	// writeToTestSheet(ans)
-	// return ans
 }
