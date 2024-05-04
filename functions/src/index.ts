@@ -12,13 +12,8 @@ import * as logger from 'firebase-functions/logger'
 import { admin, Config, db, DocDataWithIdAndRef, Users } from './utils/db'
 import { z } from 'zod'
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
-
-export const helloWorld = onRequest({ region: 'australia-southeast1' }, async (request, response) => {
-	logger.info('Hello from Firebase!')
-	response.send('Hello from Firebase! 🙂')
-})
+// TODO: note, the first column is often not just the ".", but other different
+// characters too. Hence, I'll need to update the google-scripts
 
 // Ensure that the request body is an array of objects with the following
 // schema. If not, return a 400 response with an error message.
