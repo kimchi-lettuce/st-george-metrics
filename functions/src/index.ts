@@ -33,6 +33,19 @@ const UpdateUsersZodSchema = z.array(
 
 export type UpdateUsersRequestBody = z.infer<typeof UpdateUsersZodSchema>
 
+/** This is needed so that the google-scripts function knows from which entry,
+ * to send the attendance data for */
+export const getLatestAttendanceEntryDate = onRequest({ region: 'australia-southeast1' }, async (request, response) => {
+	const latestAttendanceDate = (await db.attendance.query().orderBy('date', 'desc').limit(1).get())?.at(0)?.date
+	if (!latestAttendanceDate) {
+		// Add error handling here
+		response.status(500).send('No latest attendance date found')
+		return
+	}
+	response.send({ message: 'Processed GET request!!', latestAttendanceDate: latestAttendanceDate })
+	return
+})
+
 /** Called by the google-scripts function to update the users in the database */
 export const updateUsers = onRequest({ region: 'australia-southeast1' }, async (request, response) => {
 	if (request.method !== 'POST') {
