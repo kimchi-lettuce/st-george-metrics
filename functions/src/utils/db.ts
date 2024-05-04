@@ -164,12 +164,18 @@ export type Config = {
 		identity: string
 		reason: keyof typeof UserBlacklistReasons
 	}[]
+	/** Backlog of attendance entries that could not be matched to a user */
+	attendanceEntryUserNotFound: {
+		/** The time the attendance entry was made */
+		timestamp: number,
+		/** The name of the person who attended */
+		fullnameLowercase?: string
+		/** The card number of the person who attended */
+		QRcode?: string
+	}[]
 	/** If the number of function calls exceeds this, a warning email is sent to
 	 * the developers */
 	maxWeeklyFunctionCalls: number
-	/** What the latest attendance entry date is. So we know where to pick up
-	 * from and not have duplicate entries for the same attendance entry */
-	latestAttendanceDate: Timestamp
 }
 
 const dbCollections = {
